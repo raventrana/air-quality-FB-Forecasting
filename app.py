@@ -37,6 +37,19 @@ if uploaded_file is not None:
         if bad_col in df.columns: 
             df.drop(columns=[bad_col], errors='ignore', inplace=True)
 
+    # --- NEW CRITICAL FIX: UNIVERSAL DECIMAL COMMA REPLACER ---
+    # Loop through object columns to catch any masked commas that slipped past the CSV reader
+    for col in df.columns:
+        if df[col].dtype == 'object' and col not in ['Date', 'Time', 'DateTime']:
+            # Check if strings look like numbers using commas (e.g., "2,6")
+            # We replace commas with dots and force convert them to numeric floats
+            test_series = df[col].astype(str).str.replace(',', '.', r_count=1)
+            converted_numeric = pd.to_numeric(test_series, errors='coerce')
+            
+            # If the conversion successfully caught numbers, save it back to the dataframe
+            if not converted_numeric.isna().all():
+                df[col] = converted_numeric
+
     st.subheader("Data Processing & Diagnostics")
     
     # Smart DateTime Reconstruction
@@ -145,7 +158,7 @@ if uploaded_file is not None:
                             fig1 = plot_plotly(m, forecast)
                             st.plotly_chart(fig1, use_container_width=True)
                             
-                            # Figure 2: Dynamic Core Trend Components (New Additions)
+                            # Figure 2: Dynamic Core Trend Components
                             st.subheader("⏳ Time-Series Seasonality Components")
                             fig2 = plot_components_plotly(m, forecast)
                             st.plotly_chart(fig2, use_container_width=True)
