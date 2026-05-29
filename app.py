@@ -41,12 +41,11 @@ if uploaded_file is not None:
     # Loop through object columns to catch any masked commas that slipped past the CSV reader
     for col in df.columns:
         if df[col].dtype == 'object' and col not in ['Date', 'Time', 'DateTime']:
-            # Check if strings look like numbers using commas (e.g., "2,6")
-            # We replace commas with dots and force convert them to numeric floats
-            test_series = df[col].astype(str).str.replace(',', '.', r_count=1)
-            converted_numeric = pd.to_numeric(test_series, errors='coerce')
+            # Force string type, clean up any whitespace padding, and swap commas out for standard decimal dots
+            cleaned_series = df[col].astype(str).str.strip().str.replace(',', '.', regex=False)
+            converted_numeric = pd.to_numeric(cleaned_series, errors='coerce')
             
-            # If the conversion successfully caught numbers, save it back to the dataframe
+            # If the conversion successfully caught valid numbers, update the main DataFrame matrix
             if not converted_numeric.isna().all():
                 df[col] = converted_numeric
 
