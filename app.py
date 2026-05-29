@@ -4,22 +4,22 @@ import numpy as np
 from prophet import Prophet
 from prophet.plot import plot_plotly
 
-st.title("Flexible Air Quality Forecasting App")
-st.write("Upload any Air Quality CSV file to automatically clean data and forecast trends.")
+st.set_page_config(page_title="Ultimate Air Quality Hub", layout="wide")
+
+st.title("Comprehensive Air Quality Analytics & Forecasting Hub")
+st.write("Upload any environmental CSV dataset to automatically clean, parse, and scale predictions across metrics concurrently.")
 
 # 1. Flexible File Uploader
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+uploaded_file = st.file_uploader("Choose an Air Quality CSV file", type="csv")
 
 if uploaded_file is not None:
     # --- FLEXIBLE DATA CLEANING PIPELINE ---
-    
-    # Step A: Robust Delimiter Detection & Parsing
     try:
         # Read first line to inspect delimiter tokens
         first_line = uploaded_file.readline().decode('utf-8')
         uploaded_file.seek(0) # reset file pointer
         
-        # If semicolons are present but commas aren't splitting properly, adapt dynamically
+        # Check for alternative separator types
         if ';' in first_line and ',' in first_line:
             df = pd.read_csv(uploaded_file, sep=';', decimal=',')
         elif ';' in first_line:
@@ -27,27 +27,25 @@ if uploaded_file is not None:
         else:
             df = pd.read_csv(uploaded_file, sep=',')
     except Exception as e:
-        st.error(format(f"Error parsing file structure: {e}"))
+        st.error(f"Error parsing file structure: {e}")
         st.stop()
 
-    # Step B: Remove entirely empty trailing rows/columns if they exist
+    # Clean empty margins
     df = df.dropna(how='all', axis=0)
     df = df.dropna(how='all', axis=1)
-    if 'Unnamed: 15' in df.columns: df.drop(columns=['Unnamed: 15'], errors='ignore', inplace=True)
-    if 'Unnamed: 16' in df.columns: df.drop(columns=['Unnamed: 16'], errors='ignore', inplace=True)
+    for bad_col in ['Unnamed: 15', 'Unnamed: 16']:
+        if bad_col in df.columns: 
+            df.drop(columns=[bad_col], errors='ignore', inplace=True)
 
-    # Step C: Smart DateTime Stamp Reconstruction
-    st.subheader("Data Cleaning Log")
+    st.subheader("Data Processing & Diagnostics")
     
-    # Case 1: Separate 'Date' and 'Time' columns exist (like your original UCI dataset)
+    # Smart DateTime Reconstruction
     if 'Date' in df.columns and 'Time' in df.columns:
         time_info = df['Time'].astype(str).apply(lambda x: x.replace('.', ':'))
         combined_dt = df['Date'].astype(str) + ' ' + time_info
         df['DateTime'] = pd.to_datetime(combined_dt, dayfirst=True, errors='coerce')
         df.drop(columns=['Date', 'Time'], errors='ignore', inplace=True)
-        st.info("🔄 Combined separate 'Date' and 'Time' columns into a single timestamp.")
-        
-    # Case 2: A single column name looks like date/time (e.g., 'Date', 'Timestamp', 'DateTime')
+        st.info("🔄 Reconstructed explicit timestamp vector by combining 'Date' and 'Time' matrices.")
     else:
         dt_col = None
         for col in df.columns:
@@ -59,80 +57,95 @@ if uploaded_file is not None:
             df['DateTime'] = pd.to_datetime(df[dt_col], dayfirst=True, errors='coerce')
             if dt_col != 'DateTime':
                 df.drop(columns=[dt_col], errors='ignore', inplace=True)
-            st.info(f"🔄 Automatically detected and parsed timestamp from column: '{dt_col}'")
+            st.info(f"🔄 Automatically aligned timeline structure from native parameter: '{dt_col}'")
         else:
-            st.error("🚨 Could not identify a valid Date/Time column. Please check your CSV column headers.")
+            st.error("🚨 Missing vital Date/Time index matrix framework.")
             st.stop()
 
-    # Drop rows where timestamp parsing completely failed
     df = df.dropna(subset=['DateTime'])
+    df = df.sort_values(by='DateTime').reset_index(drop=True)
 
-    # Step D: Dynamic Multi-Step Air Quality Value Cleaning
-    # 1. Handle explicit placeholder null flags (-200)
+    # Multi-Step Sensor Cleansing Outliers
     df = df.replace(to_replace=-200, value=np.nan)
-    
-    # Get all numeric columns to apply targeted rules
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     
     if len(numeric_cols) == 0:
-        st.error("🚨 No numeric parameters found in the file to forecast.")
+        st.error("🚨 Dataset lacks numeric parameters to execute target processing configurations.")
         st.stop()
 
-    # 2. Treat Negative Values and complete Zero Values (0.0) as missing data (NaN)
-    # Note: complete 0.0 or negative readings in Air Quality are usually sensor dropout errors
+    # Drop zero out sensor dropouts (Air metrics shouldn't hit structural complete absolute zero)
     for col in numeric_cols:
         invalid_mask = (df[col] <= 0.0)
         if invalid_mask.sum() > 0:
             df.loc[invalid_mask, col] = np.nan
 
-    # 3. Handle Remaining NaNs by imputing with the column mean
+    # Fill empty values using column means
     df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-    st.info("✅ Replaced all placeholder flags (-200), negative values, and complete 0.0 dropouts with column mean averages.")
+    st.success("✅ Complete cleaning pipeline executed: Data boundaries checked, zeros corrected, missing metrics imputed.")
+    
+    with st.expander("🔍 View Cleaned Data Frame Matrix"):
+        st.write(df)
 
-    # Show summary preview
-    st.success("Data successfully optimized!")
-    st.write("### Cleaned Data Preview", df.head())
-
-    # --- STEP 4: DYNAMIC FORECAST TARGET SELECTION ---
+    # --- STEP 4: MASSIVE MULTI-VARIABLE CONFIGURATION MAP ---
     st.markdown("---")
-    st.subheader("Interactive Forecasting Options")
+    st.subheader("Bulk Forecasting Configuration Engine")
     
-    # Allow the user to select ANY valid clean numeric column for Prophet
-    target_variable = st.selectbox(
-        "Select the air quality target metric you want to forecast ('y'):",
-        options=numeric_cols
+    # Multi-select options allows selecting ALL features together cleanly
+    selected_targets = st.multiselect(
+        "Select all the Air Quality metrics you want to forecast simultaneously:",
+        options=numeric_cols,
+        default=[numeric_cols[0]] # defaults to the first one available
     )
-
-    # Reconstruct the explicit dataframe needed by Prophet
-    prophet_df = pd.DataFrame()
-    prophet_df['ds'] = df['DateTime']
-    prophet_df['y'] = df[target_variable]
-
-    # Forecast configuration sliders
-    days_to_predict = st.slider("Days to forecast into the future:", min_value=1, max_value=30, value=7)
     
-    # Determine frequency context (Hourly vs Daily) dynamically based on dataset intervals
-    time_delta = df['DateTime'].iloc[1] - df['DateTime'].iloc[0] if len(df) > 1 else pd.Timedelta(hours=1)
-    freq_setting = 'h' if time_delta.total_seconds() < 86400 else 'D'
+    days_to_predict = st.slider("Forecast window range depth (Days ahead):", min_value=1, max_value=60, value=14)
+
+    # Dynamically extract timeframe frequency delta step signature
+    if len(df) > 1:
+        time_delta = df['DateTime'].iloc[1] - df['DateTime'].iloc[0]
+        freq_setting = 'h' if time_delta.total_seconds() < 86400 else 'D'
+    else:
+        freq_setting = 'D'
+        
     periods_setting = days_to_predict * 24 if freq_setting == 'h' else days_to_predict
 
-    if st.button("Proceed with Forecasting"):
-        with st.spinner(f"Training Prophet model to predict {target_variable}..."):
-            # Initialize and fit model
-            m = Prophet()
-            m.fit(prophet_df)
+    if len(selected_targets) == 0:
+        st.warning("⚠️ Please select at least one air quality target parameter above to process analytics.")
+    else:
+        if st.button("🚀 Run Comprehensive Predictive Analytics Pipeline"):
+            # Create interactive layout tabs to hold each metric neatly
+            tab_objs = st.tabs([f"📊 {target}" for target in selected_targets])
             
-            # Generate future layout mapping intervals cleanly
-            future = m.make_future_dataframe(periods=periods_setting, freq=freq_setting)
-            forecast = m.predict(future)
-            
-        st.success(f"Forecasting complete for {target_variable}!")
-        
-        # Plotly graph component visualization
-        st.subheader("Forecast Visual Graph Map")
-        fig = plot_plotly(m, forecast)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Display explicit prediction dataframe matrix numbers
-        st.subheader("Forecast Data View matrix")
-        st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
+            for index, target_variable in enumerate(selected_targets):
+                with tab_objs[index]:
+                    st.markdown(f"### Trend Horizon Analysis for `{target_variable}`")
+                    
+                    # Prepare dedicated subset split
+                    prophet_df = pd.DataFrame()
+                    prophet_df['ds'] = df['DateTime']
+                    prophet_df['y'] = df[target_variable]
+                    
+                    # Prevent model optimization failures if features are heavily flat/empty
+                    if prophet_df['y'].nunique() <= 1:
+                        st.error(f"❌ Invalided target bounds: {target_variable} contains entirely flat or missing variances.")
+                        continue
+                        
+                    with st.spinner(f"Computing historical seasonality profiles for {target_variable}..."):
+                        try:
+                            # Model instantiation and runtime optimization execution
+                            m = Prophet()
+                            m.fit(prophet_df)
+                            
+                            future = m.make_future_dataframe(periods=periods_setting, freq=freq_setting)
+                            forecast = m.predict(future)
+                            
+                            st.success(f"Predictions processed for {target_variable}!")
+                            
+                            # Interactive mapping structure rendering
+                            fig = plot_plotly(m, forecast)
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Matrix calculations view display
+                            st.markdown("#### Future Predicted Target Core Boundaries")
+                            st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(max(5, days_to_predict)))
+                        except Exception as calc_error:
+                            st.error(f"Error compiling prediction intervals for target variable {target_variable}: {calc_error}")
