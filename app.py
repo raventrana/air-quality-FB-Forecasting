@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from prophet import Prophet
-from prophet.plot import plot_plotly
+from prophet.plot import plot_plotly, plot_components_plotly
 
 st.set_page_config(page_title="Ultimate Air Quality Hub", layout="wide")
 
@@ -117,7 +117,7 @@ if uploaded_file is not None:
             
             for index, target_variable in enumerate(selected_targets):
                 with tab_objs[index]:
-                    st.markdown(f"### Trend Horizon Analysis for `{target_variable}`")
+                    st.markdown(f"## Trend Horizon Analysis for `{target_variable}`")
                     
                     # Prepare dedicated subset split
                     prophet_df = pd.DataFrame()
@@ -126,7 +126,7 @@ if uploaded_file is not None:
                     
                     # Prevent model optimization failures if features are heavily flat/empty
                     if prophet_df['y'].nunique() <= 1:
-                        st.error(f"❌ Invalided target bounds: {target_variable} contains entirely flat or missing variances.")
+                        st.error(f"❌ Invalid target bounds: {target_variable} contains entirely flat or missing variances.")
                         continue
                         
                     with st.spinner(f"Computing historical seasonality profiles for {target_variable}..."):
@@ -140,12 +140,19 @@ if uploaded_file is not None:
                             
                             st.success(f"Predictions processed for {target_variable}!")
                             
-                            # Interactive mapping structure rendering
-                            fig = plot_plotly(m, forecast)
-                            st.plotly_chart(fig, use_container_width=True)
+                            # Figure 1: Main Forecast Visualization
+                            st.subheader("🎯 Primary Forecast Horizon")
+                            fig1 = plot_plotly(m, forecast)
+                            st.plotly_chart(fig1, use_container_width=True)
+                            
+                            # Figure 2: Dynamic Core Trend Components (New Additions)
+                            st.subheader("⏳ Time-Series Seasonality Components")
+                            fig2 = plot_components_plotly(m, forecast)
+                            st.plotly_chart(fig2, use_container_width=True)
                             
                             # Matrix calculations view display
-                            st.markdown("#### Future Predicted Target Core Boundaries")
+                            st.subheader("📋 Future Predicted Target Core Boundaries")
                             st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(max(5, days_to_predict)))
+                            
                         except Exception as calc_error:
                             st.error(f"Error compiling prediction intervals for target variable {target_variable}: {calc_error}")
