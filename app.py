@@ -23,9 +23,12 @@ if uploaded_file is not None:
     df = df.replace(to_replace=-200, value=np.nan)
     df = df.fillna(df.mean(numeric_only=True))
     
-    # Process DateTime strings
+    # Process DateTime strings cleanly
     time_info = df['Time'].apply(lambda x: str(x).replace('.', ':'))
-    df['DateTime'] = pd.to_datetime(df['Date'].astype(str) + ' ' + time_info)
+    
+    # Combine the strings first, then parse specifying dayfirst=True since the CSV is DD/MM/YYYY
+    combined_datetime = df['Date'].astype(str) + ' ' + time_info
+    df['DateTime'] = pd.to_datetime(combined_datetime, dayfirst=True, errors='coerce')
     
     st.success("Data successfully loaded and cleaned!")
     st.write("### Preview of Cleaned Data", df.head())
